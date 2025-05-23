@@ -38,21 +38,19 @@ public class SpaceShooter extends Application {
         Scene scene = new Scene(root, WIDTH, HEIGHT);
 
         // Thêm background vào root (ảnh nền)
-        ImageView background = new ImageView(new Image("file:resources/Background.jpg"));
+        ImageView background = new ImageView(new Image(getClass().getResource("/game/images/Background.jpg").toExternalForm()));
         background.setFitWidth(WIDTH);
         background.setFitHeight(HEIGHT);
         root.getChildren().add(background);
 
         // Tạo player (tàu không gian) và thêm vào root
-        player = new Player("file:resources/Player.png", WIDTH / 2 - 30, HEIGHT - 100);
+        player = new Player(getClass().getResource("/game/images/Player.png").toExternalForm(), WIDTH / 2 - 30, HEIGHT - 100);
         root.getChildren().add(player);
 
         // Tạo nhiều enemy xuất phát từ 2 bên
         for (int i = 0; i < 5; i++) {
-            // Enemy bên trái vào giữa
-            Enemy enemyLeft = new Enemy("file:resources/Enemy.png", -60, 100 + i * 60, 100 + i * 80);
-            // Enemy bên phải vào giữa
-            Enemy enemyRight = new Enemy("file:resources/Enemy.png", WIDTH + 10, 130 + i * 60, WIDTH - 150 - i * 80);
+            Enemy enemyLeft = new Enemy(getClass().getResource("/game/images/Enemy.png").toExternalForm(), -60, 100 + i * 60, 100 + i * 80);
+            Enemy enemyRight = new Enemy(getClass().getResource("/game/images/Enemy.png").toExternalForm(), WIDTH + 10, 130 + i * 60, WIDTH - 150 - i * 80);
 
             root.getChildren().addAll(enemyLeft, enemyRight);
             enemies.add(enemyLeft);
