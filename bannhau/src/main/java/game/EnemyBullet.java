@@ -6,7 +6,7 @@ public class EnemyBullet extends ImageView {
     private double speedY;
 
     public EnemyBullet(double x, double y, double speedY) {
-        super(new Image("file:resources/Bullet.png")); // Có thể dùng ảnh khác nếu muốn
+        super(new Image(EnemyBullet.class.getResource("/game/images/EnemyBullet.png").toExternalForm()));
         this.speedY = speedY;
         setFitWidth(8);
         setFitHeight(20);

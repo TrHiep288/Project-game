@@ -6,7 +6,7 @@ public class Bullet extends ImageView {
     private double speedY;
 
     public Bullet(double x, double y, double speedY) {
-        super(new Image("file:resources/Bullet.png")); // Đảm bảo đúng đường dẫn và tên file
+        super(new Image(Bullet.class.getResource("/game/images/Bullet.png").toExternalForm()));
         this.speedY = speedY;
         setFitWidth(8);
         setFitHeight(20);
@@ -18,7 +18,7 @@ public class Bullet extends ImageView {
         setY(getY() + speedY);
     }
 
-    public boolean isOutOfScreen() {
+    public boolean isOutOfScreen(double sceneHeight) {
         return getY() + getFitHeight() < 0;
     }
 }
