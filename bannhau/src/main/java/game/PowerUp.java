@@ -6,7 +6,7 @@ public class PowerUp extends ImageView {
     private double speedY = 2;
 
     public PowerUp(double x, double y) {
-        super(new Image("file:resources/PowerUp.png")); // Đặt ảnh powerup vào resources
+        super(new Image(PowerUp.class.getResource("/game/images/PowerUp.png").toExternalForm())); // Sửa đường dẫn chuẩn resource
         setFitWidth(30);
         setFitHeight(30);
         setX(x);
