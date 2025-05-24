@@ -78,26 +78,45 @@ public class Menu {
 
     private void showInstructions(Stage primaryStage, Runnable backToMenu) {
         VBox insRoot = new VBox(20);
-        insRoot.setAlignment(Pos.CENTER);
-        insRoot.setStyle("-fx-background-color: linear-gradient(to bottom, #0a2a43, #1e3c72);");
+        insRoot.setAlignment(Pos.TOP_CENTER);
+        insRoot.setStyle("-fx-background-color: white; -fx-padding: 30 30 30 30;");
 
-        Label insTitle = new Label("Instructions");
-        insTitle.setFont(new Font("Arial Black", 48));
-        insTitle.setTextFill(Color.CYAN);
-        insTitle.setEffect(new DropShadow(20, Color.CYAN));
+        // Title row
+        Label insTitle = new Label("Space Shooter Instructions");
+        insTitle.setFont(new Font("Arial", 32));
+        insTitle.setTextFill(Color.web("#222"));
+        insTitle.setTextAlignment(TextAlignment.LEFT);
 
+        // Icon (optional, you can add an ImageView here if you want)
+
+        // Content
         Label insText = new Label(
-            "Move: Arrow Keys\n" +
-            "Shoot: Auto\n" +
-            "Collect power-ups to upgrade your weapon.\n" +
-            "Survive as long as possible and defeat enemies!"
+            "Use the A, W, S, and D keys or the arrow keys to move your spaceship.\n" +
+            "Press SPACE to shoot bullets and destroy the enemies.\n" +
+            "If an enemy reaches the bottom of the screen, you lose a life.\n" +
+            "The game resets if you lose all lives.\n" +
+            "Collect power-ups to increase your score.\n" +
+            "Defeat the boss enemy to level up and increase the difficulty.\n" +
+            "Good luck and have fun!"
         );
-        insText.setFont(new Font("Arial", 24));
-        insText.setTextFill(Color.WHITE);
-        insText.setTextAlignment(TextAlignment.CENTER);
+        insText.setFont(new Font("Arial", 20));
+        insText.setTextFill(Color.web("#222"));
+        insText.setWrapText(true);
+        insText.setTextAlignment(TextAlignment.LEFT);
 
         Button backBtn = new Button("BACK");
-        styleMenuButton(backBtn);
+        backBtn.setFont(new Font("Arial Black", 22));
+        backBtn.setPrefWidth(120);
+        backBtn.setPrefHeight(50);
+        backBtn.setStyle(
+            "-fx-background-radius: 20;" +
+            "-fx-background-color: #00bfff;" +
+            "-fx-text-fill: white;" +
+            "-fx-border-radius: 20;" +
+            "-fx-border-width: 2;" +
+            "-fx-border-color: #0099cc;"
+        );
+        backBtn.setEffect(new DropShadow(10, Color.LIGHTBLUE));
         backBtn.setOnAction(e -> backToMenu.run());
 
         insRoot.getChildren().addAll(insTitle, insText, backBtn);
