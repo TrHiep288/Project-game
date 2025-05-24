@@ -1,122 +1,139 @@
 package game;
-import javafx.animation.AnimationTimer;
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.input.KeyCode;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.layout.Pane;
-import javafx.scene.control.Label;
-import javafx.scene.text.Font;
-import javafx.stage.Stage;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import javafx.animation.AnimationTimer;
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.layout.Pane;
+import javafx.scene.text.Font;
+import javafx.stage.Stage;
+
 public class SpaceShooter extends Application {
 
-    // Khai báo các biến toàn cục
-    private final int WIDTH = 600;   // Chiều rộng cửa sổ game
-    private final int HEIGHT = 800;  // Chiều cao cửa sổ game
+    private final int WIDTH = 600;
+    private final int HEIGHT = 700;
 
-    private Player player;           // Đối tượng người chơi (tàu)
-    private List<Bullet> bullets = new ArrayList<>(); // Danh sách đạn của player
-    private List<Enemy> enemies = new ArrayList<>();  // Danh sách kẻ thù
-    private List<EnemyBullet> enemyBullets = new ArrayList<>(); // Danh sách đạn của kẻ thù
-    private List<PowerUp> powerUps = new ArrayList<>(); // Danh sách power-up
+    private Player player;
+    private List<Bullet> bullets = new ArrayList<>();
+    private List<Enemy> enemies = new ArrayList<>();
+    private List<EnemyBullet> enemyBullets = new ArrayList<>();
+    private List<PowerUp> powerUps = new ArrayList<>();
+    private List<List<Enemy>> enemyRows = new ArrayList<>();
+    private int currentRow = 0;
 
-    private boolean left, right, up, down; // Cờ kiểm tra phím di chuyển
-    private boolean poweredUp = false; // Cờ kiểm tra trạng thái được tăng cường
-    private int powerLevel = 1; // Mặc định bắn 1 tia
-    private long powerUpEndTime = 0; // Thời gian kết thúc hiệu lực power-up
-    private int playerHp = 5; // Máu của player
-    private Label hpLabel;    // Label hiển thị máu
+    private boolean left, right, up, down;
+    private int powerLevel = 1;
+    private long powerUpEndTime = 0;
+    private int playerHp = 5;
+    private Label hpLabel;
+    private Label infoLabel;
+
+    private int score = 0;
+    private long startTime = 0;
+
+    private ImageView background1;
+    private ImageView background2;
+    private double backgroundSpeed = 1;
 
     @Override
     public void start(Stage primaryStage) {
+    Menu menu = new Menu();
+    menu.showMenu(primaryStage, () -> startGame(primaryStage));
+}
+
+    private void startGame(Stage primaryStage) {
         Pane root = new Pane();
         Scene scene = new Scene(root, WIDTH, HEIGHT);
 
-        // Thêm background vào root (ảnh nền)
-        ImageView background = new ImageView(new Image(getClass().getResource("/game/images/Background.jpg").toExternalForm()));
-        background.setFitWidth(WIDTH);
-        background.setFitHeight(HEIGHT);
-        root.getChildren().add(background);
+        // Background động
+        background1 = new ImageView(new Image(getClass().getResource("/game/images/Background.jpg").toExternalForm()));
+        background2 = new ImageView(new Image(getClass().getResource("/game/images/Background.jpg").toExternalForm()));
+        background1.setFitWidth(WIDTH);
+        background1.setFitHeight(HEIGHT);
+        background2.setFitWidth(WIDTH);
+        background2.setFitHeight(HEIGHT);
+        background1.setY(0);
+        background2.setY(-HEIGHT);
+        root.getChildren().addAll(background1, background2);
 
-        // Tạo player (tàu không gian) và thêm vào root
+        // Player
         player = new Player(getClass().getResource("/game/images/Player.png").toExternalForm(), WIDTH / 2 - 30, HEIGHT - 100);
         root.getChildren().add(player);
 
-        // Tạo nhiều enemy xuất phát từ 2 bên
-        for (int i = 0; i < 5; i++) {
-            Enemy enemyLeft = new Enemy(getClass().getResource("/game/images/Enemy.png").toExternalForm(), -60, 100 + i * 60, 100 + i * 80);
-            Enemy enemyRight = new Enemy(getClass().getResource("/game/images/Enemy.png").toExternalForm(), WIDTH + 10, 130 + i * 60, WIDTH - 150 - i * 80);
+        // Enemy rows
+        createEnemyRows();
+        spawnCurrentRow(root);
 
-            root.getChildren().addAll(enemyLeft, enemyRight);
-            enemies.add(enemyLeft);
-            enemies.add(enemyRight);
-        }
-
-        // Tạo label hiển thị máu cho player
+        // HP label
         hpLabel = new Label("HP: " + playerHp);
         hpLabel.setFont(new Font("Arial", 20));
         hpLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
-        hpLabel.setLayoutX(WIDTH - 100); // Góc phải
+        hpLabel.setLayoutX(WIDTH - 100);
         hpLabel.setLayoutY(10);
         root.getChildren().add(hpLabel);
 
-        // Xử lý phím bấm: khi nhấn phím, đặt cờ true để di chuyển mượt
+        // Info label (score + time)
+        infoLabel = new Label("Score: 0   Time: 0s");
+        infoLabel.setFont(new Font("Arial", 16));
+        infoLabel.setStyle("-fx-text-fill: yellow; -fx-font-weight: bold;");
+        infoLabel.setLayoutX(WIDTH - 180);
+        infoLabel.setLayoutY(40);
+        root.getChildren().add(infoLabel);
+
+        startTime = System.currentTimeMillis();
+
+        // Key events
         scene.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.LEFT) {
-                left = true;
-            } else if (event.getCode() == KeyCode.RIGHT) {
-                right = true;
-            } else if (event.getCode() == KeyCode.UP) {
-                up = true;
-            } else if (event.getCode() == KeyCode.DOWN) {
-                down = true;
-            }
+            if (event.getCode() == KeyCode.LEFT) left = true;
+            else if (event.getCode() == KeyCode.RIGHT) right = true;
+            else if (event.getCode() == KeyCode.UP) up = true;
+            else if (event.getCode() == KeyCode.DOWN) down = true;
         });
-
-        // Khi nhả phím, đặt cờ false để dừng di chuyển
         scene.setOnKeyReleased(event -> {
-            if (event.getCode() == KeyCode.LEFT) {
-                left = false;
-            } else if (event.getCode() == KeyCode.RIGHT) {
-                right = false;
-            } else if (event.getCode() == KeyCode.UP) {
-                up = false;
-            } else if (event.getCode() == KeyCode.DOWN) {
-                down = false;
-            }
+            if (event.getCode() == KeyCode.LEFT) left = false;
+            else if (event.getCode() == KeyCode.RIGHT) right = false;
+            else if (event.getCode() == KeyCode.UP) up = false;
+            else if (event.getCode() == KeyCode.DOWN) down = false;
         });
 
-        // Vòng lặp game, cập nhật trạng thái mỗi frame
+        // Game loop
         new AnimationTimer() {
-            long lastShot = 0; // Lưu thời gian bắn viên đạn trước
-            AnimationTimer self = this; // Tham chiếu đến chính AnimationTimer này
+            long lastShot = 0;
+            AnimationTimer self = this;
 
             @Override
             public void handle(long now) {
+                // Background scroll
+                background1.setY(background1.getY() + backgroundSpeed);
+                background2.setY(background2.getY() + backgroundSpeed);
+                if (background1.getY() >= HEIGHT) background1.setY(background2.getY() - HEIGHT);
+                if (background2.getY() >= HEIGHT) background2.setY(background1.getY() - HEIGHT);
+
                 double playerWidth = player.getFitWidth();
                 double playerHeight = player.getFitHeight();
 
-                // Tự động bắn đạn mỗi 300ms
-                if (now - lastShot > 300_000_000) { // 300 triệu nano giây = 300ms
+                // Player shoot
+                if (now - lastShot > 300_000_000) {
                     if (powerLevel == 1) {
                         Bullet bullet = player.shoot();
                         root.getChildren().add(bullet);
                         bullets.add(bullet);
                     } else if (powerLevel == 2) {
-                        Bullet bullet1 = new Bullet(player.getX() + player.getFitWidth() / 2 - 12, player.getY() - 10, -5);
-                        Bullet bullet2 = new Bullet(player.getX() + player.getFitWidth() / 2 + 8, player.getY() - 10, -5);
+                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 12, player.getY() - 10, -5);
+                        Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 + 8, player.getY() - 10, -5);
                         root.getChildren().addAll(bullet1, bullet2);
                         bullets.add(bullet1);
                         bullets.add(bullet2);
                     } else if (powerLevel >= 3) {
-                        Bullet bullet1 = new Bullet(player.getX() + player.getFitWidth() / 2 - 18, player.getY() - 10, -5);
-                        Bullet bullet2 = new Bullet(player.getX() + player.getFitWidth() / 2 - 2, player.getY() - 10, -5);
-                        Bullet bullet3 = new Bullet(player.getX() + player.getFitWidth() / 2 + 14, player.getY() - 10, -5);
+                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 18, player.getY() - 10, -5);
+                        Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 - 2, player.getY() - 10, -5);
+                        Bullet bullet3 = new Bullet(player.getX() + playerWidth / 2 + 14, player.getY() - 10, -5);
                         root.getChildren().addAll(bullet1, bullet2, bullet3);
                         bullets.add(bullet1);
                         bullets.add(bullet2);
@@ -125,32 +142,29 @@ public class SpaceShooter extends Application {
                     lastShot = now;
                 }
 
-                // Di chuyển player và giới hạn trong màn hình
-                if (left && player.getX() > 0) 
+                // Player move
+                if (left && player.getX() > 0)
                     player.setX(Math.max(0, player.getX() - 3));
-                if (right && player.getX() + playerWidth < WIDTH) 
+                if (right && player.getX() + playerWidth < WIDTH)
                     player.setX(Math.min(WIDTH - playerWidth, player.getX() + 3));
-                if (up && player.getY() > 0) 
+                if (up && player.getY() > 0)
                     player.setY(Math.max(0, player.getY() - 3));
-                if (down && player.getY() + playerHeight < HEIGHT) 
+                if (down && player.getY() + playerHeight < HEIGHT)
                     player.setY(Math.min(HEIGHT - playerHeight, player.getY() + 3));
 
-                // Cập nhật vị trí đạn
-                for (Bullet bullet : bullets) {
-                    bullet.update();
-                }
-                // Cập nhật vị trí enemy
+                // Update bullets
+                for (Bullet bullet : bullets) bullet.update();
+
+                // Update enemies
                 for (Enemy enemy : enemies) {
                     enemy.update();
-
-                    // Cho mỗi enemy bắn đạn mỗi 1 giây (khi đã vào giữa)
                     if (!enemy.isMovingIn()) {
                         Long lastEnemyShot = (Long) enemy.getProperties().getOrDefault("lastShot", 0L);
-                        if (now - lastEnemyShot > 2_000_000_000L) { // 2 giây
+                        if (now - lastEnemyShot > 2_000_000_000L) {
                             EnemyBullet eb = new EnemyBullet(
-                                enemy.getX() + enemy.getFitWidth()/2 - 4,
+                                enemy.getX() + enemy.getFitWidth() / 2 - 4,
                                 enemy.getY() + enemy.getFitHeight(),
-                                1 // tốc độ đạn địch
+                                4
                             );
                             root.getChildren().add(eb);
                             enemyBullets.add(eb);
@@ -159,17 +173,14 @@ public class SpaceShooter extends Application {
                     }
                 }
 
-                // Cập nhật vị trí đạn địch
+                // Update enemy bullets
                 List<EnemyBullet> toRemove = new ArrayList<>();
                 for (EnemyBullet eb : enemyBullets) {
                     eb.update();
-                    if (eb.isOutOfScreen(HEIGHT)) {
-                        toRemove.add(eb);
-                    }
-                    // Va chạm với player
+                    if (eb.isOutOfScreen(HEIGHT)) toRemove.add(eb);
                     if (eb.getBoundsInParent().intersects(player.getBoundsInParent())) {
                         playerHp--;
-                        hpLabel.setText("HP: " + playerHp); // Cập nhật label
+                        hpLabel.setText("HP: " + playerHp);
                         toRemove.add(eb);
                     }
                 }
@@ -178,68 +189,69 @@ public class SpaceShooter extends Application {
                     enemyBullets.remove(eb);
                 }
 
+                // Bullet-enemy collision
                 List<Enemy> enemyToRemove = new ArrayList<>();
                 List<Bullet> bulletToRemove = new ArrayList<>();
-
                 for (Enemy enemy : enemies) {
                     for (Bullet bullet : bullets) {
                         if (enemy.getBoundsInParent().intersects(bullet.getBoundsInParent())) {
-                            enemy.takeDamage(1); // Mỗi viên đạn trừ 1 máu
+                            enemy.takeDamage(1);
                             bulletToRemove.add(bullet);
-                            if (!enemy.isAlive()) {
-                                enemyToRemove.add(enemy);
-                            }
+                            if (!enemy.isAlive()) enemyToRemove.add(enemy);
                         }
                     }
                 }
-
-                // Xóa enemy hết máu và đạn đã va chạm
                 for (Enemy enemy : enemyToRemove) {
                     root.getChildren().remove(enemy);
                     enemies.remove(enemy);
+                    score += 100;
                 }
                 for (Bullet bullet : bulletToRemove) {
                     root.getChildren().remove(bullet);
                     bullets.remove(bullet);
                 }
 
-                // Xóa các thanh máu cũ trước khi vẽ lại
-                root.getChildren().removeIf(node -> node.getUserData() != null && node.getUserData().equals("enemy_hp_bar"));
+                // Next enemy row
+                if (enemies.isEmpty()) {
+                    currentRow++;
+                    if (currentRow < enemyRows.size()) {
+                        spawnCurrentRow(root);
+                    } else {
+                        createEnemyRows();
+                        spawnCurrentRow(root);
+                    }
+                }
 
-                // Vẽ thanh máu cho từng enemy
+                // Draw enemy HP bars
+                root.getChildren().removeIf(node -> node.getUserData() != null && node.getUserData().equals("enemy_hp_bar"));
                 for (Enemy enemy : enemies) {
-                    double x = enemy.getX() + enemy.getFitWidth() * 0.25; // Lệch vào 15% hai bên
-                    double y = enemy.getY() - 1; // Sát trên đầu enemy
-                    double width = enemy.getFitWidth() * 0.5; // Thanh máu chỉ chiếm 70% chiều rộng enemy
-                    double maxHp = 3.0; // Số máu tối đa
+                    double x = enemy.getX() + enemy.getFitWidth() * 0.25;
+                    double y = enemy.getY() - 1;
+                    double width = enemy.getFitWidth() * 0.5;
+                    double maxHp = 3.0;
                     double hpPercent = Math.max(0, enemy.getHp() / maxHp);
                     double barWidth = width * hpPercent;
-
                     javafx.scene.shape.Rectangle hpBar = new javafx.scene.shape.Rectangle(x, y, barWidth, 4);
                     hpBar.setFill(javafx.scene.paint.Color.RED);
                     hpBar.setUserData("enemy_hp_bar");
-
                     root.getChildren().add(hpBar);
                 }
 
-                // Tạo power-up ngẫu nhiên (ví dụ mỗi 5 giây có 1% xuất hiện)
+                // Power-up random
                 if (Math.random() < 0.01 && powerUps.size() < 1) {
                     PowerUp pu = new PowerUp(Math.random() * (WIDTH - 30), 0);
                     root.getChildren().add(pu);
                     powerUps.add(pu);
                 }
 
-                // Cập nhật power-up
+                // Update power-ups
                 List<PowerUp> puToRemove = new ArrayList<>();
                 for (PowerUp pu : powerUps) {
                     pu.update();
-                    if (pu.isOutOfScreen(HEIGHT)) {
-                        puToRemove.add(pu);
-                    }
-                    // Va chạm với player
+                    if (pu.isOutOfScreen(HEIGHT)) puToRemove.add(pu);
                     if (pu.getBoundsInParent().intersects(player.getBoundsInParent())) {
-                        powerLevel = Math.min(3, powerLevel + 1); // Tăng tối đa 3 tia
-                        powerUpEndTime = now + 5_000_000_000L; // Hiệu lực 5 giây
+                        powerLevel = Math.min(3, powerLevel + 1);
+                        powerUpEndTime = now + 5_000_000_000L;
                         puToRemove.add(pu);
                     }
                 }
@@ -248,25 +260,24 @@ public class SpaceShooter extends Application {
                     powerUps.remove(pu);
                 }
 
-                // Hết hiệu lực power-up
-                if (poweredUp && now > powerUpEndTime) {
-                    poweredUp = false;
-                }
-                if (powerLevel > 1 && now > powerUpEndTime) {
-                    powerLevel = 1;
-                }
+                // Power-up timeout
+                if (powerLevel > 1 && now > powerUpEndTime) powerLevel = 1;
 
-                // Cập nhật lại label máu của player
+                // Update HP label
                 hpLabel.setText("HP: " + playerHp);
 
-                // Kiểm tra game over
+                // Update score & time label
+                long elapsed = (System.currentTimeMillis() - startTime) / 1000;
+                infoLabel.setText("Score: " + score + "   Time: " + elapsed + "s");
+
+                // Game over
                 if (playerHp <= 0) {
                     hpLabel.setText("HP: 0 (Game Over)");
-                    self.stop(); // Dừng AnimationTimer (dừng game)
-                    // Đóng cửa sổ game sau 1 giây (nếu muốn)
+                    self.stop();
                     javafx.application.Platform.runLater(() -> {
                         try { Thread.sleep(1000); } catch (InterruptedException e) {}
-                        ((Stage) hpLabel.getScene().getWindow()).close();
+                        FinishScreen finish = new FinishScreen();
+                        finish.showFinishScreen(primaryStage, score, () -> startGame(primaryStage));
                     });
                 }
             }
@@ -275,6 +286,91 @@ public class SpaceShooter extends Application {
         primaryStage.setTitle("Space Shooter - JavaFX");
         primaryStage.setScene(scene);
         primaryStage.show();
+    }
+
+    // Enemy formations
+    private void createEnemyRows() {
+        enemyRows.clear();
+        int numEnemies = 8;
+        int formationType = (int)(Math.random() * 3); // 0: line, 1: circle, 2: square
+
+        double enemyWidth = player.getFitWidth();
+        double enemyHeight = player.getFitHeight();
+
+        if (formationType == 0) {
+            // Line
+            double padding = (WIDTH - enemyWidth * numEnemies) / 2;
+            int y = 80;
+            List<Enemy> row = new ArrayList<>();
+            for (int i = 0; i < numEnemies; i++) {
+                double targetX = padding + i * enemyWidth;
+                int startX = (i < numEnemies / 2) ? -((int)enemyWidth) : WIDTH + (int)enemyWidth;
+                Enemy enemy = new Enemy(
+                    getClass().getResource("/game/images/Enemy.png").toExternalForm(),
+                    startX, y, targetX
+                );
+                enemy.setFitWidth(enemyWidth);
+                enemy.setFitHeight(enemyHeight);
+                row.add(enemy);
+            }
+            enemyRows.add(row);
+        } else if (formationType == 1) {
+            // Circle
+            double centerX = WIDTH / 2.0;
+            double centerY = HEIGHT / 4.0;
+            double radius = Math.min(WIDTH, HEIGHT) / 5.0;
+            List<Enemy> row = new ArrayList<>();
+            for (int i = 0; i < numEnemies; i++) {
+                double angle = 2 * Math.PI * i / numEnemies;
+                double targetX = centerX + radius * Math.cos(angle) - enemyWidth / 2;
+                double targetY = centerY + radius * Math.sin(angle) - enemyHeight / 2;
+                int startX = (i < numEnemies / 2) ? -((int)enemyWidth) : WIDTH + (int)enemyWidth;
+                Enemy enemy = new Enemy(
+                    getClass().getResource("/game/images/Enemy.png").toExternalForm(),
+                    startX, targetY, targetX
+                );
+                enemy.setFitWidth(enemyWidth);
+                enemy.setFitHeight(enemyHeight);
+                row.add(enemy);
+            }
+            enemyRows.add(row);
+        } else {
+            // Square (2 rows, 4 cols)
+            int rows = 2, cols = 4;
+            double paddingX = (WIDTH - enemyWidth * cols) / 2;
+            double paddingY = 60;
+            for (int r = 0; r < rows; r++) {
+                List<Enemy> squareRow = new ArrayList<>();
+                double y = paddingY + r * (enemyHeight + 10);
+                for (int c = 0; c < cols; c++) {
+                    double targetX = paddingX + c * enemyWidth;
+                    int startX = (c < cols / 2) ? -((int)enemyWidth) : WIDTH + (int)enemyWidth;
+                    Enemy enemy = new Enemy(
+                        getClass().getResource("/game/images/Enemy.png").toExternalForm(),
+                        startX, y, targetX
+                    );
+                    enemy.setFitWidth(enemyWidth);
+                    enemy.setFitHeight(enemyHeight);
+                    squareRow.add(enemy);
+                }
+                enemyRows.add(squareRow);
+            }
+        }
+        currentRow = 0;
+    }
+
+    // Spawn current enemy row
+    private void spawnCurrentRow(Pane root) {
+        for (Enemy e : enemies) {
+            root.getChildren().remove(e);
+        }
+        enemies.clear();
+        if (currentRow < enemyRows.size()) {
+            for (Enemy e : enemyRows.get(currentRow)) {
+                root.getChildren().add(e);
+                enemies.add(e);
+            }
+        }
     }
 
     public static void main(String[] args) {
