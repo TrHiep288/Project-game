@@ -3,6 +3,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "TestMusic",
+      "request": "launch",
+      "mainClass": "game/game.TestMusic",
+      "projectName": "bannhau"
+    },
+    {
+      "type": "java",
       "name": "SpaceShooter",
       "request": "launch",
       "mainClass": "game/game.SpaceShooter",
@@ -13,7 +20,15 @@
       "name": "Run JavaFX App",
       "request": "launch",
       "mainClass": "SpaceShooter",
-      "vmArgs": "--module-path \"C:\\java\\Project-game\\lib\\javafx-sdk-21.0.7\\lib\" --add-modules javafx.controls,javafx.fxml --enable-native-access=javafx.graphics"
+      "vmArgs": "--add-modules javafx.controls,javafx.media"
+    },
+    {
+      "type": "java",
+      "name": "Launch Game",
+      "request": "launch",
+      "mainClass": "game.SpaceShooter",
+      "projectName": "Project-game",
+      "vmArgs": "--module-path C:/duong-dan-toi/javafx-sdk-XX/lib --add-modules javafx.controls,javafx.media"
     }
   ]
 }

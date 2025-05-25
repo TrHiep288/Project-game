@@ -4,10 +4,12 @@ import javafx.scene.image.ImageView;
 
 public class Bullet extends ImageView {
     private double speedY;
+    private int damage;
 
-    public Bullet(double x, double y, double speedY) {
+    public Bullet(double x, double y, double speedY, int damage) {
         super(new Image(Bullet.class.getResource("/game/images/Bullet.png").toExternalForm()));
         this.speedY = speedY;
+        this.damage = damage;
         setFitWidth(8);
         setFitHeight(20);
         setX(x);
@@ -18,7 +20,11 @@ public class Bullet extends ImageView {
         setY(getY() + speedY);
     }
 
+    public int getDamage() {
+        return damage;
+    }
+
     public boolean isOutOfScreen(double sceneHeight) {
-        return getY() + getFitHeight() < 0;
+        return getY() < 0 || getY() > sceneHeight;
     }
 }

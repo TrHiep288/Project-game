@@ -13,6 +13,9 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
+import javafx.scene.media.AudioClip;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
 
 public class SpaceShooter extends Application {
 
@@ -41,6 +44,13 @@ public class SpaceShooter extends Application {
     private ImageView background2;
     private double backgroundSpeed = 1;
 
+    private MediaPlayer bgmPlayer; // Thêm dòng này
+
+    private BossEnemy boss = null;
+    private boolean bossActive = false;
+    private boolean gameEnded = false;
+    private boolean bossSpawned = false; // Biến đánh dấu xem boss đã xuất hiện chưa
+
     @Override
     public void start(Stage primaryStage) {
     Menu menu = new Menu();
@@ -48,6 +58,34 @@ public class SpaceShooter extends Application {
 }
 
     private void startGame(Stage primaryStage) {
+        bossActive = false;
+        bossSpawned = false;
+        gameEnded = false;
+        boss = null;
+        enemies.clear();
+        bullets.clear();
+        enemyBullets.clear();
+        powerUps.clear();
+        enemyRows.clear();
+        currentRow = 0;
+        playerHp = 5;
+        score = 0;
+        powerLevel = 1;
+        powerUpEndTime = 0;
+
+        // RESET trạng thái phím
+        left = false;
+        right = false;
+        up = false;
+        down = false;
+
+        // STOP nhạc nền cũ nếu có
+        if (bgmPlayer != null) {
+            bgmPlayer.stop();
+            bgmPlayer.dispose();
+            bgmPlayer = null;
+        }
+
         Pane root = new Pane();
         Scene scene = new Scene(root, WIDTH, HEIGHT);
 
@@ -102,13 +140,26 @@ public class SpaceShooter extends Application {
             else if (event.getCode() == KeyCode.DOWN) down = false;
         });
 
+        // Media background
+        Media bgm = new Media(getClass().getResource("/game/sounds/ThienLyOi.mp3").toExternalForm());
+        bgmPlayer = new MediaPlayer(bgm);
+        bgmPlayer.setVolume(0.8);
+        bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+        bgmPlayer.setOnError(() -> {
+            System.out.println("Lỗi phát nhạc: " + bgmPlayer.getError());
+        });
+        bgmPlayer.play();
+
         // Game loop
         new AnimationTimer() {
             long lastShot = 0;
+            long lastBossShot = 0;
             AnimationTimer self = this;
 
             @Override
             public void handle(long now) {
+                if (gameEnded) return; // Nếu game đã kết thúc thì không làm gì cả
+
                 // Background scroll
                 background1.setY(background1.getY() + backgroundSpeed);
                 background2.setY(background2.getY() + backgroundSpeed);
@@ -121,24 +172,29 @@ public class SpaceShooter extends Application {
                 // Player shoot
                 if (now - lastShot > 300_000_000) {
                     if (powerLevel == 1) {
-                        Bullet bullet = player.shoot();
+                        Bullet bullet = new Bullet(player.getX() + playerWidth / 2 - 4, player.getY() - 10, -5, 1);
                         root.getChildren().add(bullet);
                         bullets.add(bullet);
                     } else if (powerLevel == 2) {
-                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 12, player.getY() - 10, -5);
-                        Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 + 8, player.getY() - 10, -5);
+                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 12, player.getY() - 10, -5, 1);
+                        Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 + 8, player.getY() - 10, -5, 1);
                         root.getChildren().addAll(bullet1, bullet2);
                         bullets.add(bullet1);
                         bullets.add(bullet2);
                     } else if (powerLevel >= 3) {
-                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 18, player.getY() - 10, -5);
-                        Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 - 2, player.getY() - 10, -5);
-                        Bullet bullet3 = new Bullet(player.getX() + playerWidth / 2 + 14, player.getY() - 10, -5);
+                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 18, player.getY() - 10, -5, 2); // mạnh hơn
+                        Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 - 2, player.getY() - 10, -5, 2);
+                        Bullet bullet3 = new Bullet(player.getX() + playerWidth / 2 + 14, player.getY() - 10, -5, 2);
                         root.getChildren().addAll(bullet1, bullet2, bullet3);
                         bullets.add(bullet1);
                         bullets.add(bullet2);
                         bullets.add(bullet3);
                     }
+                    // Khi bắn đạn
+                    AudioClip shootSound = new AudioClip(getClass().getResource("/game/sounds/bandan.wav").toExternalForm());
+                    shootSound.setVolume(0.2); // Âm lượng nhỏ (20%)
+                    shootSound.play();
+
                     lastShot = now;
                 }
 
@@ -195,7 +251,7 @@ public class SpaceShooter extends Application {
                 for (Enemy enemy : enemies) {
                     for (Bullet bullet : bullets) {
                         if (enemy.getBoundsInParent().intersects(bullet.getBoundsInParent())) {
-                            enemy.takeDamage(1);
+                            enemy.takeDamage(bullet.getDamage());
                             bulletToRemove.add(bullet);
                             if (!enemy.isAlive()) enemyToRemove.add(enemy);
                         }
@@ -205,14 +261,24 @@ public class SpaceShooter extends Application {
                     root.getChildren().remove(enemy);
                     enemies.remove(enemy);
                     score += 100;
+                    // Phát âm thanh nổ khi địch bị tiêu diệt
+                    AudioClip explosionSound = new AudioClip(getClass().getResource("/game/sounds/no.wav").toExternalForm());
+                    explosionSound.setVolume(0.5); // Âm lượng vừa (50%)
+                    explosionSound.play();
                 }
                 for (Bullet bullet : bulletToRemove) {
                     root.getChildren().remove(bullet);
                     bullets.remove(bullet);
                 }
 
-                // Next enemy row
-                if (enemies.isEmpty()) {
+                // Next enemy row & boss xuất hiện
+                if (enemies.isEmpty() && !bossActive && !bossSpawned) {
+                    boss = new BossEnemy(WIDTH / 2 - 60, 40);
+                    root.getChildren().add(boss);
+                    bossActive = true;
+                    bossSpawned = true; // Đánh dấu đã sinh boss
+                } else if (enemies.isEmpty() && !bossActive && !bossSpawned) {
+                    // Chỉ spawn enemy mới nếu chưa có boss và boss chưa từng xuất hiện
                     currentRow++;
                     if (currentRow < enemyRows.size()) {
                         spawnCurrentRow(root);
@@ -253,6 +319,10 @@ public class SpaceShooter extends Application {
                         powerLevel = Math.min(3, powerLevel + 1);
                         powerUpEndTime = now + 5_000_000_000L;
                         puToRemove.add(pu);
+                        // Phát âm thanh ăn power-up
+                        AudioClip powerupSound = new AudioClip(getClass().getResource("/game/sounds/ansao.wav").toExternalForm());
+                        powerupSound.setVolume(1.0); // Âm lượng lớn nhất (100%)
+                        powerupSound.play();
                     }
                 }
                 for (PowerUp pu : puToRemove) {
@@ -273,12 +343,61 @@ public class SpaceShooter extends Application {
                 // Game over
                 if (playerHp <= 0) {
                     hpLabel.setText("HP: 0 (Game Over)");
+                    gameEnded = true; // Đánh dấu là game đã kết thúc
                     self.stop();
                     javafx.application.Platform.runLater(() -> {
                         try { Thread.sleep(1000); } catch (InterruptedException e) {}
                         FinishScreen finish = new FinishScreen();
                         finish.showFinishScreen(primaryStage, score, () -> startGame(primaryStage));
                     });
+                }
+
+                if (bossActive && boss != null) {
+                    boss.update(WIDTH);
+
+                    // Boss bắn đạn mỗi 1 giây
+                  
+                    // Va chạm đạn với boss
+                    List<Bullet> bossHit = new ArrayList<>();
+                    for (Bullet bullet : bullets) {
+                        if (boss.getBoundsInParent().intersects(bullet.getBoundsInParent())) {
+                            boss.takeDamage(bullet.getDamage());
+                            bossHit.add(bullet);
+                        }
+                    }
+                    for (Bullet bullet : bossHit) {
+                        root.getChildren().remove(bullet);
+                        bullets.remove(bullet);
+                    }
+
+                    // Nếu boss chết
+                    if (!boss.isAlive() && !gameEnded) {
+                        root.getChildren().remove(boss);
+                        bossActive = false;
+                        gameEnded = true;
+                        score += 1000;
+
+                        // Âm thanh nổ boss
+                        AudioClip bossExplosion = new AudioClip(getClass().getResource("/game/sounds/boss.wav").toExternalForm());
+                        bossExplosion.setVolume(1.0);
+                        bossExplosion.play();
+
+                        self.stop(); // Dừng game loop
+
+                        javafx.application.Platform.runLater(() -> {
+                            try { Thread.sleep(1000); } catch (InterruptedException e) {}
+                            FinishScreen finish = new FinishScreen();
+                            finish.showFinishScreen(primaryStage, score, () -> startGame(primaryStage));
+                        });
+                    }
+
+                    // Vẽ thanh máu boss
+                    root.getChildren().removeIf(node -> "boss_hp_bar".equals(node.getUserData()));
+                    double barWidth = WIDTH * (boss.getHp() / 30.0);
+                    javafx.scene.shape.Rectangle bossHpBar = new javafx.scene.shape.Rectangle(0, 0, barWidth, 10);
+                    bossHpBar.setFill(javafx.scene.paint.Color.PURPLE);
+                    bossHpBar.setUserData("boss_hp_bar");
+                    root.getChildren().add(bossHpBar);
                 }
             }
         }.start();

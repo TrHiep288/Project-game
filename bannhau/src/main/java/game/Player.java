@@ -23,6 +23,8 @@ public class Player extends GameObject {
     public Bullet shoot() {
         double bulletX = getX() + getFitWidth() / 2 - 2; // căn giữa viên đạn
         double bulletY = getY() - 10;
-        return new Bullet(bulletX, bulletY, -5); // đạn bay lên trên
+        double bulletSpeedY = -15; // Tốc độ viên đạn bay lên
+        int bulletDamage = 1; // Sát thương của viên đạn
+        return new Bullet(bulletX, bulletY, bulletSpeedY, bulletDamage); // đạn bay lên trên
     }
 }
