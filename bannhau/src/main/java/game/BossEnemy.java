@@ -4,7 +4,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 public class BossEnemy extends ImageView {
-    private double hp = 30;
+    private double hp = 60;
     private double centerX, centerY;
     private double orbitAngle = 0;
     private double orbitRadius = 80;

@@ -51,6 +51,10 @@ public class SpaceShooter extends Application {
     private boolean gameEnded = false;
     private boolean bossSpawned = false; // Biến đánh dấu xem boss đã xuất hiện chưa
 
+    // Thêm biến toàn cục
+    private double bossBulletPhase = 0;
+    private int bossPhase = 0; // 0: tỏa tròn, 1: xoắn ốc, 2: bắn chùm
+
     @Override
     public void start(Stage primaryStage) {
     Menu menu = new Menu();
@@ -363,17 +367,47 @@ public class SpaceShooter extends Application {
 
                     // Boss bắn đạn mỗi 1 giây
                     if (now - lastBossShot > 1_000_000_000L) {
-                        double bossCenterX = boss.getX() + boss.getFitWidth() / 2 - 8; // 8 là nửa chiều rộng viên đạn
-                        double bossCenterY = boss.getY() + boss.getFitHeight() / 2 - 16; // 16 là nửa chiều cao viên đạn
-                        int numBullets = 8;
-                        double speed = 5;
-                        for (int i = 0; i < numBullets; i++) {
-                            double angle = 2 * Math.PI * i / numBullets;
-                            double dx = speed * Math.cos(angle);
-                            double dy = speed * Math.sin(angle);
-                            BossBullet bossBullet = new BossBullet(bossCenterX, bossCenterY, dx, dy);
-                            root.getChildren().add(bossBullet);
-                            enemyBullets.add(bossBullet);
+                        double bossCenterX = boss.getX() + boss.getFitWidth() / 2 - 8;
+                        double bossCenterY = boss.getY() + boss.getFitHeight() / 2 - 16;
+
+                        if (bossPhase == 0) {
+                            // Tỏa tròn đều, nhiều viên
+                            int numBullets = 16;
+                            double speed = 4.5;
+                            for (int i = 0; i < numBullets; i++) {
+                                double angle = bossBulletPhase + 2 * Math.PI * i / numBullets;
+                                double dx = speed * Math.cos(angle);
+                                double dy = speed * Math.sin(angle);
+                                BossBullet bossBullet = new BossBullet(bossCenterX, bossCenterY, dx, dy);
+                                root.getChildren().add(bossBullet);
+                                enemyBullets.add(bossBullet);
+                            }
+                            bossBulletPhase += Math.PI / 32;
+                        } else if (bossPhase == 1) {
+                            // Xoắn ốc, ít viên, xoắn nhanh
+                            int numBullets = 8;
+                            double speed = 6;
+                            for (int i = 0; i < numBullets; i++) {
+                                double angle = bossBulletPhase + i * Math.PI / 4 + bossBulletPhase * 3;
+                                double dx = speed * Math.cos(angle);
+                                double dy = speed * Math.sin(angle);
+                                BossBullet bossBullet = new BossBullet(bossCenterX, bossCenterY, dx, dy);
+                                root.getChildren().add(bossBullet);
+                                enemyBullets.add(bossBullet);
+                            }
+                            bossBulletPhase += Math.PI / 10;
+                        } else if (bossPhase == 2) {
+                            // Bắn chùm, đổi hướng mạnh
+                            double speed = 7;
+                            for (int i = -1; i <= 1; i++) {
+                                double angle = bossBulletPhase + i * Math.PI / 6;
+                                double dx = speed * Math.cos(angle);
+                                double dy = speed * Math.sin(angle);
+                                BossBullet bossBullet = new BossBullet(bossCenterX, bossCenterY, dx, dy);
+                                root.getChildren().add(bossBullet);
+                                enemyBullets.add(bossBullet);
+                            }
+                            bossBulletPhase += Math.PI / 6;
                         }
                         lastBossShot = now;
                     }
@@ -414,11 +448,14 @@ public class SpaceShooter extends Application {
 
                     // Vẽ thanh máu boss
                     root.getChildren().removeIf(node -> "boss_hp_bar".equals(node.getUserData()));
-                    double barWidth = WIDTH * (boss.getHp() / 30.0);
+                    double barWidth = WIDTH * (boss.getHp() / 60.0); // nếu hp tối đa là 60
                     javafx.scene.shape.Rectangle bossHpBar = new javafx.scene.shape.Rectangle(0, 0, barWidth, 10);
                     bossHpBar.setFill(javafx.scene.paint.Color.PURPLE);
                     bossHpBar.setUserData("boss_hp_bar");
                     root.getChildren().add(bossHpBar);
+
+                    if (boss.getHp() < 20 && bossPhase == 0) bossPhase = 1;
+                    if (boss.getHp() < 10 && bossPhase == 1) bossPhase = 2;
                 }
             }
         }.start();
