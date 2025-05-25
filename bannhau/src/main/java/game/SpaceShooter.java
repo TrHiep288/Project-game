@@ -232,7 +232,13 @@ public class SpaceShooter extends Application {
                 // Update enemy bullets
                 List<EnemyBullet> toRemove = new ArrayList<>();
                 for (EnemyBullet eb : enemyBullets) {
-                    eb.update();
+                    if (eb instanceof BossBullet && eb.getUserData() instanceof double[]) {
+                        double[] v = (double[]) eb.getUserData();
+                        eb.setX(eb.getX() + v[0]);
+                        eb.setY(eb.getY() + v[1]);
+                    } else {
+                        eb.update();
+                    }
                     if (eb.isOutOfScreen(HEIGHT)) toRemove.add(eb);
                     if (eb.getBoundsInParent().intersects(player.getBoundsInParent())) {
                         playerHp--;
@@ -356,7 +362,22 @@ public class SpaceShooter extends Application {
                     boss.update(WIDTH);
 
                     // Boss bắn đạn mỗi 1 giây
-                  
+                    if (now - lastBossShot > 1_000_000_000L) {
+                        double bossCenterX = boss.getX() + boss.getFitWidth() / 2 - 8; // 8 là nửa chiều rộng viên đạn
+                        double bossCenterY = boss.getY() + boss.getFitHeight() / 2 - 16; // 16 là nửa chiều cao viên đạn
+                        int numBullets = 8;
+                        double speed = 5;
+                        for (int i = 0; i < numBullets; i++) {
+                            double angle = 2 * Math.PI * i / numBullets;
+                            double dx = speed * Math.cos(angle);
+                            double dy = speed * Math.sin(angle);
+                            BossBullet bossBullet = new BossBullet(bossCenterX, bossCenterY, dx, dy);
+                            root.getChildren().add(bossBullet);
+                            enemyBullets.add(bossBullet);
+                        }
+                        lastBossShot = now;
+                    }
+
                     // Va chạm đạn với boss
                     List<Bullet> bossHit = new ArrayList<>();
                     for (Bullet bullet : bullets) {
