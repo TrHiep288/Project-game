@@ -273,7 +273,7 @@ public class SpaceShooter extends Application {
 
                 // Next enemy row & boss xuất hiện
                 if (enemies.isEmpty() && !bossActive && !bossSpawned) {
-                    boss = new BossEnemy(WIDTH / 2 - 60, 40);
+                    boss = new BossEnemy(WIDTH, 40); // WIDTH là chiều rộng màn hình
                     root.getChildren().add(boss);
                     bossActive = true;
                     bossSpawned = true; // Đánh dấu đã sinh boss
