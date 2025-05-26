@@ -231,12 +231,20 @@ public class SpaceShooter extends Application {
                     }
                 }
 
-                // Update enemy bullets
+                // Update enemy bullets & check collision with player
                 List<EnemyBullet> toRemove = new ArrayList<>();
                 for (EnemyBullet eb : enemyBullets) {
                     eb.update();
                     if (eb.isOutOfScreen(HEIGHT)) {
                         toRemove.add(eb);
+                    }
+                    // Va chạm đạn với player, mỗi viên chỉ trừ 1 máu
+                    if (eb.getBoundsInParent().intersects(player.getBoundsInParent()) && playerHp > 0 && !gameEnded) {
+                        toRemove.add(eb);
+                        playerHp--;
+                        AudioClip hitSound = new AudioClip(getClass().getResource("/game/sounds/hit.wav").toExternalForm());
+                        hitSound.setVolume(0.2);
+                        hitSound.play();
                     }
                 }
                 for (EnemyBullet eb : toRemove) {
@@ -350,7 +358,7 @@ public class SpaceShooter extends Application {
                 long elapsed = (System.currentTimeMillis() - startTime) / 1000;
                 infoLabel.setText("Score: " + score + "   Time: " + elapsed + "s");
 
-                // Game over
+                // Game over: chỉ thua khi playerHp <= 0 (tức là trúng 5 viên đạn)
                 if (playerHp <= 0) {
                     hpLabel.setText("HP: 0 (Game Over)");
                     gameEnded = true;
