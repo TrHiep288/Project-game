@@ -233,20 +233,42 @@ public class SpaceShooter extends Application {
 
                 // Update enemy bullets & check collision with player
                 List<EnemyBullet> toRemove = new ArrayList<>();
+                boolean playerHitThisFrame = false;
+
+                // Đạn enemy
                 for (EnemyBullet eb : enemyBullets) {
                     eb.update();
-                    if (eb.isOutOfScreen(HEIGHT)) {
-                        toRemove.add(eb);
-                    }
-                    // Va chạm đạn với player, mỗi viên chỉ trừ 1 máu
-                    if (eb.getBoundsInParent().intersects(player.getBoundsInParent()) && playerHp > 0 && !gameEnded) {
+                    if (eb.isOutOfScreen(HEIGHT)) toRemove.add(eb);
+                    if (!playerHitThisFrame && eb.getBoundsInParent().intersects(player.getBoundsInParent()) && playerHp > 0 && !gameEnded) {
                         toRemove.add(eb);
                         playerHp--;
-                        AudioClip hitSound = new AudioClip(getClass().getResource("/game/sounds/hit.wav").toExternalForm());
-                        hitSound.setVolume(0.2);
-                        hitSound.play();
+                        playerHitThisFrame = true;
+                        // ...âm thanh...
+                        break;
                     }
                 }
+
+                // Va chạm enemy thường
+                if (!playerHitThisFrame) {
+                    for (Enemy enemy : enemies) {
+                        if (enemy.getBoundsInParent().intersects(player.getBoundsInParent()) && playerHp > 0 && !gameEnded) {
+                            playerHp--;
+                            playerHitThisFrame = true;
+                            // ...âm thanh...
+                            break;
+                        }
+                    }
+                }
+
+                // Va chạm boss
+                if (!playerHitThisFrame && bossActive && boss != null && !gameEnded) {
+                    if (player.getBoundsInParent().intersects(boss.getBoundsInParent()) && playerHp > 0) {
+                        playerHp--;
+                        playerHitThisFrame = true;
+                        // ...âm thanh...
+                    }
+                }
+
                 for (EnemyBullet eb : toRemove) {
                     root.getChildren().remove(eb);
                     enemyBullets.remove(eb);
@@ -472,6 +494,30 @@ public class SpaceShooter extends Application {
                     bossHpBar.setStrokeWidth(2);
                     bossHpBar.setUserData("boss_hp_bar");
                     root.getChildren().add(bossHpBar);
+                }
+
+                // Sau khi xử lý đạn enemy, thêm kiểm tra va chạm với boss:
+                if (bossActive && boss != null && !gameEnded) {
+                    if (player.getBoundsInParent().intersects(boss.getBoundsInParent()) && playerHp > 0) {
+                        playerHp--;
+                        AudioClip hitSound = new AudioClip(getClass().getResource("/game/sounds/hit.wav").toExternalForm());
+                        hitSound.setVolume(0.2);
+                        hitSound.play();
+                        // Có thể thêm hiệu ứng đẩy player ra khỏi boss nếu muốn
+                    }
+                }
+
+                // Kiểm tra va chạm giữa player và enemy (chỉ kiểm tra 1 lần cho mỗi enemy)
+                boolean playerCollideEnemy = false;
+                for (Enemy enemy : enemies) {
+                    if (!playerCollideEnemy && enemy.getBoundsInParent().intersects(player.getBoundsInParent()) && playerHp > 0 && !gameEnded) {
+                        playerHp--;
+                        playerCollideEnemy = true;
+                        AudioClip hitSound = new AudioClip(getClass().getResource("/game/sounds/hit.wav").toExternalForm());
+                        hitSound.setVolume(0.2);
+                        hitSound.play();
+                        break;
+                    }
                 }
             }
         }.start();

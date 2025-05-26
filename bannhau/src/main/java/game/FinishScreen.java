@@ -17,7 +17,22 @@ public class FinishScreen {
     private final int WIDTH = 600;
     private final int HEIGHT = 700;
 
+    // Add root as a field
+    private VBox root;
+
+    // List to store enemy bullets
+    private List<EnemyBullet> enemyBullets = new ArrayList<>();
+
+    // Add bossPhase variable
+    private int bossPhase = 0;
+
+    // Add bossBulletPhase variable
+    private double bossBulletPhase = 0.0;
+
     public void showFinishScreen(Stage primaryStage, int score, boolean isWin, Runnable tryAgain) {
+        root = new VBox(40);
+        root.setAlignment(Pos.CENTER);
+        root.setStyle("-fx-background-color: black;");
         VBox root = new VBox(40);
         root.setAlignment(Pos.CENTER);
         root.setStyle("-fx-background-color: black;");
@@ -74,6 +89,10 @@ public class FinishScreen {
 
     // Boss bắn đạn mỗi 1.5 giây, chỉ bắn 4 viên/lần
     public void bossShoot() {
+        // Example: Set boss center coordinates (adjust as needed)
+        double bossCenterX = WIDTH / 2.0;
+        double bossCenterY = 100; // Example Y position for the boss
+
         if (bossPhase == 0) {
             int numBullets = 4; // Giảm số lượng đạn
             double speed = 4.5;
