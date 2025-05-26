@@ -1,5 +1,8 @@
 package game;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
@@ -52,5 +55,19 @@ public class BossEnemy extends ImageView {
 
     public double getHp() {
         return hp;
+    }
+
+    public void updateBullets(List<EnemyBullet> enemyBullets, double HEIGHT, javafx.scene.Group root) {
+        List<EnemyBullet> toRemove = new ArrayList<>();
+        for (EnemyBullet eb : enemyBullets) {
+            eb.update();
+            if (eb.isOutOfScreen(HEIGHT)) {
+                toRemove.add(eb);
+            }
+        }
+        for (EnemyBullet eb : toRemove) {
+            root.getChildren().remove(eb);
+            enemyBullets.remove(eb);
+        }
     }
 }

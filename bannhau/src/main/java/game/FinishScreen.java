@@ -10,20 +10,22 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class FinishScreen {
     private final int WIDTH = 600;
     private final int HEIGHT = 700;
 
-    public void showFinishScreen(Stage primaryStage, int score, Runnable tryAgain) {
+    public void showFinishScreen(Stage primaryStage, int score, boolean isWin, Runnable tryAgain) {
         VBox root = new VBox(40);
         root.setAlignment(Pos.CENTER);
         root.setStyle("-fx-background-color: black;");
 
-        // GAME OVER label
-        Label gameOver = new Label("GAME OVER");
-        gameOver.setFont(new Font("Arial Black", 72));
-        gameOver.setTextFill(Color.RED);
-        gameOver.setEffect(new DropShadow(30, Color.RED));
+        // RESULT label
+        Label resultLabel = new Label(isWin ? "WIN" : "GAME OVER");
+        resultLabel.setFont(new Font("Arial", 48));
+        resultLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
 
         // Score label
         Label scoreLabel = new Label("Your Score: " + score);
@@ -64,9 +66,40 @@ public class FinishScreen {
             primaryStage.close();
         });
 
-        root.getChildren().addAll(gameOver, scoreLabel, tryAgainBtn, exitBtn);
+        root.getChildren().addAll(resultLabel, scoreLabel, tryAgainBtn, exitBtn);
 
         Scene finishScene = new Scene(root, WIDTH, HEIGHT);
         primaryStage.setScene(finishScene);
+    }
+
+    // Boss bắn đạn mỗi 1.5 giây, chỉ bắn 4 viên/lần
+    public void bossShoot() {
+        if (bossPhase == 0) {
+            int numBullets = 4; // Giảm số lượng đạn
+            double speed = 4.5;
+            for (int i = 0; i < numBullets; i++) {
+                double angle = bossBulletPhase + 2 * Math.PI * i / numBullets;
+                double dx = speed * Math.cos(angle);
+                double dy = speed * Math.sin(angle);
+                BossBullet bossBullet = new BossBullet(bossCenterX, bossCenterY, dx, dy);
+                root.getChildren().add(bossBullet);
+                enemyBullets.add(bossBullet);
+            }
+            bossBulletPhase += Math.PI / 32;
+        }
+    }
+
+    public void updateEnemyBullets() {
+        List<EnemyBullet> toRemove = new ArrayList<>();
+        for (EnemyBullet eb : enemyBullets) {
+            eb.update();
+            if (eb.isOutOfScreen(HEIGHT)) {
+                toRemove.add(eb);
+            }
+        }
+        for (EnemyBullet eb : toRemove) {
+            root.getChildren().remove(eb);
+            enemyBullets.remove(eb);
+        }
     }
 }

@@ -4,18 +4,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javafx.animation.AnimationTimer;
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
-import javafx.scene.text.Font;
-import javafx.stage.Stage;
 import javafx.scene.media.AudioClip;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.scene.text.Font;
+import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class SpaceShooter extends Application {
 
@@ -44,22 +47,32 @@ public class SpaceShooter extends Application {
     private ImageView background2;
     private double backgroundSpeed = 1;
 
-    private MediaPlayer bgmPlayer; // Thêm dòng này
+    private MediaPlayer bgmPlayer;
 
     private BossEnemy boss = null;
     private boolean bossActive = false;
     private boolean gameEnded = false;
-    private boolean bossSpawned = false; // Biến đánh dấu xem boss đã xuất hiện chưa
+    private boolean bossSpawned = false;
 
-    // Thêm biến toàn cục
     private double bossBulletPhase = 0;
-    private int bossPhase = 0; // 0: tỏa tròn, 1: xoắn ốc, 2: bắn chùm
+    private int bossPhase = 0;
+    private int formationsCleared = 0;
+
+    private long lastShot = 0;
 
     @Override
     public void start(Stage primaryStage) {
-    Menu menu = new Menu();
-    menu.showMenu(primaryStage, () -> startGame(primaryStage));
-}
+        // Phát nhạc khi vào menu
+        Media bgm = new Media(getClass().getResource("/game/sounds/ThienLyOi.mp3").toExternalForm());
+        bgmPlayer = new MediaPlayer(bgm);
+        bgmPlayer.setVolume(0.8);
+        bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+        bgmPlayer.setOnError(() -> System.out.println("Lỗi phát nhạc: " + bgmPlayer.getError()));
+        bgmPlayer.play();
+
+        Menu menu = new Menu();
+        menu.showMenu(primaryStage, () -> startGame(primaryStage));
+    }
 
     private void startGame(Stage primaryStage) {
         bossActive = false;
@@ -76,14 +89,10 @@ public class SpaceShooter extends Application {
         score = 0;
         powerLevel = 1;
         powerUpEndTime = 0;
+        formationsCleared = 0;
+        left = right = up = down = false;
 
-        // RESET trạng thái phím
-        left = false;
-        right = false;
-        up = false;
-        down = false;
-
-        // STOP nhạc nền cũ nếu có
+        // STOP nhạc nền menu nếu có
         if (bgmPlayer != null) {
             bgmPlayer.stop();
             bgmPlayer.dispose();
@@ -136,45 +145,10 @@ public class SpaceShooter extends Application {
             else if (event.getCode() == KeyCode.RIGHT) right = true;
             else if (event.getCode() == KeyCode.UP) up = true;
             else if (event.getCode() == KeyCode.DOWN) down = true;
-        });
-        scene.setOnKeyReleased(event -> {
-            if (event.getCode() == KeyCode.LEFT) left = false;
-            else if (event.getCode() == KeyCode.RIGHT) right = false;
-            else if (event.getCode() == KeyCode.UP) up = false;
-            else if (event.getCode() == KeyCode.DOWN) down = false;
-        });
-
-        // Media background
-        Media bgm = new Media(getClass().getResource("/game/sounds/ThienLyOi.mp3").toExternalForm());
-        bgmPlayer = new MediaPlayer(bgm);
-        bgmPlayer.setVolume(0.8);
-        bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-        bgmPlayer.setOnError(() -> {
-            System.out.println("Lỗi phát nhạc: " + bgmPlayer.getError());
-        });
-        bgmPlayer.play();
-
-        // Game loop
-        new AnimationTimer() {
-            long lastShot = 0;
-            long lastBossShot = 0;
-            AnimationTimer self = this;
-
-            @Override
-            public void handle(long now) {
-                if (gameEnded) return; // Nếu game đã kết thúc thì không làm gì cả
-
-                // Background scroll
-                background1.setY(background1.getY() + backgroundSpeed);
-                background2.setY(background2.getY() + backgroundSpeed);
-                if (background1.getY() >= HEIGHT) background1.setY(background2.getY() - HEIGHT);
-                if (background2.getY() >= HEIGHT) background2.setY(background1.getY() - HEIGHT);
-
-                double playerWidth = player.getFitWidth();
-                double playerHeight = player.getFitHeight();
-
-                // Player shoot
-                if (now - lastShot > 300_000_000) {
+            else if (event.getCode() == KeyCode.SPACE) {
+                long now = System.nanoTime();
+                if (!gameEnded && playerHp > 0 && now - lastShot > 300_000_000) {
+                    double playerWidth = player.getFitWidth();
                     if (powerLevel == 1) {
                         Bullet bullet = new Bullet(player.getX() + playerWidth / 2 - 4, player.getY() - 10, -5, 1);
                         root.getChildren().add(bullet);
@@ -186,7 +160,7 @@ public class SpaceShooter extends Application {
                         bullets.add(bullet1);
                         bullets.add(bullet2);
                     } else if (powerLevel >= 3) {
-                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 18, player.getY() - 10, -5, 2); // mạnh hơn
+                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 18, player.getY() - 10, -5, 2);
                         Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 - 2, player.getY() - 10, -5, 2);
                         Bullet bullet3 = new Bullet(player.getX() + playerWidth / 2 + 14, player.getY() - 10, -5, 2);
                         root.getChildren().addAll(bullet1, bullet2, bullet3);
@@ -194,13 +168,37 @@ public class SpaceShooter extends Application {
                         bullets.add(bullet2);
                         bullets.add(bullet3);
                     }
-                    // Khi bắn đạn
                     AudioClip shootSound = new AudioClip(getClass().getResource("/game/sounds/bandan.wav").toExternalForm());
-                    shootSound.setVolume(0.2); // Âm lượng nhỏ (20%)
+                    shootSound.setVolume(0.2);
                     shootSound.play();
-
                     lastShot = now;
                 }
+            }
+        });
+        scene.setOnKeyReleased(event -> {
+            if (event.getCode() == KeyCode.LEFT) left = false;
+            else if (event.getCode() == KeyCode.RIGHT) right = false;
+            else if (event.getCode() == KeyCode.UP) up = false;
+            else if (event.getCode() == KeyCode.DOWN) down = false;
+        });
+
+        // Game loop
+        new AnimationTimer() {
+            long lastBossShot = 0;
+            AnimationTimer self = this;
+
+            @Override
+            public void handle(long now) {
+                if (gameEnded) return;
+
+                // Background scroll
+                background1.setY(background1.getY() + backgroundSpeed);
+                background2.setY(background2.getY() + backgroundSpeed);
+                if (background1.getY() >= HEIGHT) background1.setY(background2.getY() - HEIGHT);
+                if (background2.getY() >= HEIGHT) background2.setY(background1.getY() - HEIGHT);
+
+                double playerWidth = player.getFitWidth();
+                double playerHeight = player.getFitHeight();
 
                 // Player move
                 if (left && player.getX() > 0)
@@ -236,17 +234,8 @@ public class SpaceShooter extends Application {
                 // Update enemy bullets
                 List<EnemyBullet> toRemove = new ArrayList<>();
                 for (EnemyBullet eb : enemyBullets) {
-                    if (eb instanceof BossBullet && eb.getUserData() instanceof double[]) {
-                        double[] v = (double[]) eb.getUserData();
-                        eb.setX(eb.getX() + v[0]);
-                        eb.setY(eb.getY() + v[1]);
-                    } else {
-                        eb.update();
-                    }
-                    if (eb.isOutOfScreen(HEIGHT)) toRemove.add(eb);
-                    if (eb.getBoundsInParent().intersects(player.getBoundsInParent())) {
-                        playerHp--;
-                        hpLabel.setText("HP: " + playerHp);
+                    eb.update();
+                    if (eb.isOutOfScreen(HEIGHT)) {
                         toRemove.add(eb);
                     }
                 }
@@ -271,9 +260,19 @@ public class SpaceShooter extends Application {
                     root.getChildren().remove(enemy);
                     enemies.remove(enemy);
                     score += 100;
-                    // Phát âm thanh nổ khi địch bị tiêu diệt
+                    // Hiệu ứng nổ
+                    ImageView boom = new ImageView(getClass().getResource("/game/images/Boom.png").toExternalForm());
+                    boom.setFitWidth(enemy.getFitWidth());
+                    boom.setFitHeight(enemy.getFitHeight());
+                    boom.setX(enemy.getX());
+                    boom.setY(enemy.getY());
+                    root.getChildren().add(boom);
+                    PauseTransition pt = new PauseTransition(Duration.seconds(0.4));
+                    pt.setOnFinished(e -> root.getChildren().remove(boom));
+                    pt.play();
+
                     AudioClip explosionSound = new AudioClip(getClass().getResource("/game/sounds/no.wav").toExternalForm());
-                    explosionSound.setVolume(0.5); // Âm lượng vừa (50%)
+                    explosionSound.setVolume(0.5);
                     explosionSound.play();
                 }
                 for (Bullet bullet : bulletToRemove) {
@@ -283,18 +282,20 @@ public class SpaceShooter extends Application {
 
                 // Next enemy row & boss xuất hiện
                 if (enemies.isEmpty() && !bossActive && !bossSpawned) {
-                    boss = new BossEnemy(WIDTH, 40); // WIDTH là chiều rộng màn hình
-                    root.getChildren().add(boss);
-                    bossActive = true;
-                    bossSpawned = true; // Đánh dấu đã sinh boss
-                } else if (enemies.isEmpty() && !bossActive && !bossSpawned) {
-                    // Chỉ spawn enemy mới nếu chưa có boss và boss chưa từng xuất hiện
-                    currentRow++;
-                    if (currentRow < enemyRows.size()) {
-                        spawnCurrentRow(root);
+                    formationsCleared++;
+                    if (formationsCleared < 3) {
+                        currentRow++;
+                        if (currentRow < enemyRows.size()) {
+                            spawnCurrentRow(root);
+                        } else {
+                            createEnemyRows();
+                            spawnCurrentRow(root);
+                        }
                     } else {
-                        createEnemyRows();
-                        spawnCurrentRow(root);
+                        boss = new BossEnemy(WIDTH, 40);
+                        root.getChildren().add(boss);
+                        bossActive = true;
+                        bossSpawned = true;
                     }
                 }
 
@@ -329,9 +330,8 @@ public class SpaceShooter extends Application {
                         powerLevel = Math.min(3, powerLevel + 1);
                         powerUpEndTime = now + 5_000_000_000L;
                         puToRemove.add(pu);
-                        // Phát âm thanh ăn power-up
                         AudioClip powerupSound = new AudioClip(getClass().getResource("/game/sounds/ansao.wav").toExternalForm());
-                        powerupSound.setVolume(1.0); // Âm lượng lớn nhất (100%)
+                        powerupSound.setVolume(1.0);
                         powerupSound.play();
                     }
                 }
@@ -353,26 +353,26 @@ public class SpaceShooter extends Application {
                 // Game over
                 if (playerHp <= 0) {
                     hpLabel.setText("HP: 0 (Game Over)");
-                    gameEnded = true; // Đánh dấu là game đã kết thúc
+                    gameEnded = true;
                     self.stop();
-                    javafx.application.Platform.runLater(() -> {
+                    Platform.runLater(() -> {
                         try { Thread.sleep(1000); } catch (InterruptedException e) {}
                         FinishScreen finish = new FinishScreen();
-                        finish.showFinishScreen(primaryStage, score, () -> startGame(primaryStage));
+                        finish.showFinishScreen(primaryStage, score, false, () -> startGame(primaryStage));
                     });
                 }
 
+                // Boss logic
                 if (bossActive && boss != null) {
                     boss.update(WIDTH);
 
-                    // Boss bắn đạn mỗi 1 giây
+                    // Boss bắn đạn mỗi 1 giây, giảm số lượng đạn để giảm lag
                     if (now - lastBossShot > 1_000_000_000L) {
                         double bossCenterX = boss.getX() + boss.getFitWidth() / 2 - 8;
                         double bossCenterY = boss.getY() + boss.getFitHeight() / 2 - 16;
 
                         if (bossPhase == 0) {
-                            // Tỏa tròn đều, nhiều viên
-                            int numBullets = 16;
+                            int numBullets = 4;
                             double speed = 4.5;
                             for (int i = 0; i < numBullets; i++) {
                                 double angle = bossBulletPhase + 2 * Math.PI * i / numBullets;
@@ -384,11 +384,10 @@ public class SpaceShooter extends Application {
                             }
                             bossBulletPhase += Math.PI / 32;
                         } else if (bossPhase == 1) {
-                            // Xoắn ốc, ít viên, xoắn nhanh
-                            int numBullets = 8;
+                            int numBullets = 6;
                             double speed = 6;
                             for (int i = 0; i < numBullets; i++) {
-                                double angle = bossBulletPhase + i * Math.PI / 4 + bossBulletPhase * 3;
+                                double angle = bossBulletPhase + i * Math.PI / 3 + bossBulletPhase * 3;
                                 double dx = speed * Math.cos(angle);
                                 double dy = speed * Math.sin(angle);
                                 BossBullet bossBullet = new BossBullet(bossCenterX, bossCenterY, dx, dy);
@@ -397,7 +396,6 @@ public class SpaceShooter extends Application {
                             }
                             bossBulletPhase += Math.PI / 10;
                         } else if (bossPhase == 2) {
-                            // Bắn chùm, đổi hướng mạnh
                             double speed = 7;
                             for (int i = -1; i <= 1; i++) {
                                 double angle = bossBulletPhase + i * Math.PI / 6;
@@ -427,35 +425,45 @@ public class SpaceShooter extends Application {
 
                     // Nếu boss chết
                     if (!boss.isAlive() && !gameEnded) {
+                        // Hiệu ứng nổ boss
+                        ImageView boom = new ImageView(getClass().getResource("/game/images/Boom.png").toExternalForm());
+                        boom.setFitWidth(boss.getFitWidth());
+                        boom.setFitHeight(boss.getFitHeight());
+                        boom.setX(boss.getX());
+                        boom.setY(boss.getY());
+                        root.getChildren().add(boom);
+                        PauseTransition pt = new PauseTransition(Duration.seconds(0.7));
+                        pt.setOnFinished(e -> root.getChildren().remove(boom));
+                        pt.play();
+
                         root.getChildren().remove(boss);
                         bossActive = false;
                         gameEnded = true;
                         score += 1000;
-
-                        // Âm thanh nổ boss
                         AudioClip bossExplosion = new AudioClip(getClass().getResource("/game/sounds/boss.wav").toExternalForm());
                         bossExplosion.setVolume(1.0);
                         bossExplosion.play();
-
-                        self.stop(); // Dừng game loop
-
-                        javafx.application.Platform.runLater(() -> {
+                        self.stop();
+                        Platform.runLater(() -> {
                             try { Thread.sleep(1000); } catch (InterruptedException e) {}
                             FinishScreen finish = new FinishScreen();
-                            finish.showFinishScreen(primaryStage, score, () -> startGame(primaryStage));
+                            finish.showFinishScreen(primaryStage, score, true, () -> startGame(primaryStage));
                         });
                     }
 
-                    // Vẽ thanh máu boss
+                    // Vẽ thanh máu boss di chuyển trên đầu boss
                     root.getChildren().removeIf(node -> "boss_hp_bar".equals(node.getUserData()));
-                    double barWidth = WIDTH * (boss.getHp() / 60.0); // nếu hp tối đa là 60
-                    javafx.scene.shape.Rectangle bossHpBar = new javafx.scene.shape.Rectangle(0, 0, barWidth, 10);
-                    bossHpBar.setFill(javafx.scene.paint.Color.PURPLE);
+                    double bossMaxHp = 60.0;
+                    double barWidth = boss.getFitWidth() * (boss.getHp() / bossMaxHp);
+                    double barHeight = 10;
+                    double barX = boss.getX();
+                    double barY = boss.getY() - barHeight - 8;
+                    javafx.scene.shape.Rectangle bossHpBar = new javafx.scene.shape.Rectangle(barX, barY, barWidth, barHeight);
+                    bossHpBar.setFill(javafx.scene.paint.Color.RED);
+                    bossHpBar.setStroke(javafx.scene.paint.Color.WHITE);
+                    bossHpBar.setStrokeWidth(2);
                     bossHpBar.setUserData("boss_hp_bar");
                     root.getChildren().add(bossHpBar);
-
-                    if (boss.getHp() < 20 && bossPhase == 0) bossPhase = 1;
-                    if (boss.getHp() < 10 && bossPhase == 1) bossPhase = 2;
                 }
             }
         }.start();
@@ -469,30 +477,11 @@ public class SpaceShooter extends Application {
     private void createEnemyRows() {
         enemyRows.clear();
         int numEnemies = 8;
-        int formationType = (int)(Math.random() * 3); // 0: line, 1: circle, 2: square
+        double enemyWidth = 60;
+        double enemyHeight = 60;
 
-        double enemyWidth = player.getFitWidth();
-        double enemyHeight = player.getFitHeight();
-
-        if (formationType == 0) {
-            // Line
-            double padding = (WIDTH - enemyWidth * numEnemies) / 2;
-            int y = 80;
-            List<Enemy> row = new ArrayList<>();
-            for (int i = 0; i < numEnemies; i++) {
-                double targetX = padding + i * enemyWidth;
-                int startX = (i < numEnemies / 2) ? -((int)enemyWidth) : WIDTH + (int)enemyWidth;
-                Enemy enemy = new Enemy(
-                    getClass().getResource("/game/images/Enemy.png").toExternalForm(),
-                    startX, y, targetX
-                );
-                enemy.setFitWidth(enemyWidth);
-                enemy.setFitHeight(enemyHeight);
-                row.add(enemy);
-            }
-            enemyRows.add(row);
-        } else if (formationType == 1) {
-            // Circle
+        // 1. Hình tròn
+        {
             double centerX = WIDTH / 2.0;
             double centerY = HEIGHT / 4.0;
             double radius = Math.min(WIDTH, HEIGHT) / 5.0;
@@ -511,13 +500,15 @@ public class SpaceShooter extends Application {
                 row.add(enemy);
             }
             enemyRows.add(row);
-        } else {
-            // Square (2 rows, 4 cols)
+        }
+
+        // 2. Hình vuông (2 hàng, 4 cột)
+        {
             int rows = 2, cols = 4;
             double paddingX = (WIDTH - enemyWidth * cols) / 2;
             double paddingY = 60;
+            List<Enemy> squareRow = new ArrayList<>();
             for (int r = 0; r < rows; r++) {
-                List<Enemy> squareRow = new ArrayList<>();
                 double y = paddingY + r * (enemyHeight + 10);
                 for (int c = 0; c < cols; c++) {
                     double targetX = paddingX + c * enemyWidth;
@@ -530,8 +521,27 @@ public class SpaceShooter extends Application {
                     enemy.setFitHeight(enemyHeight);
                     squareRow.add(enemy);
                 }
-                enemyRows.add(squareRow);
             }
+            enemyRows.add(squareRow);
+        }
+
+        // 3. Hình thẳng (line)
+        {
+            double padding = (WIDTH - enemyWidth * numEnemies) / 2;
+            int y = 80;
+            List<Enemy> row = new ArrayList<>();
+            for (int i = 0; i < numEnemies; i++) {
+                double targetX = padding + i * enemyWidth;
+                int startX = (i < numEnemies / 2) ? -((int)enemyWidth) : WIDTH + (int)enemyWidth;
+                Enemy enemy = new Enemy(
+                    getClass().getResource("/game/images/Enemy.png").toExternalForm(),
+                    startX, y, targetX
+                );
+                enemy.setFitWidth(enemyWidth);
+                enemy.setFitHeight(enemyHeight);
+                row.add(enemy);
+            }
+            enemyRows.add(row);
         }
         currentRow = 0;
     }
