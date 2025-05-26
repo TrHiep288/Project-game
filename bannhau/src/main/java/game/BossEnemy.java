@@ -12,7 +12,7 @@ public class BossEnemy extends ImageView {
     private double orbitAngle = 0;
     private double orbitRadius = 80;
     private double orbitSpeed = 0.02;
-    private double speedY = 2; // tốc độ rơi xuống
+    // private double speedY = 2; // tốc độ rơi xuống (removed unused field)
 
     private double startCenterY;
     private double targetCenterY;

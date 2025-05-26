@@ -37,6 +37,8 @@ public class SpaceShooter extends Application {
     private int powerLevel = 1;
     private long powerUpEndTime = 0;
     private int playerHp = 5;
+    private boolean playerShield = false;
+    private long shieldEndTime = 0;
     private Label hpLabel;
     private Label infoLabel;
 
@@ -59,6 +61,8 @@ public class SpaceShooter extends Application {
     private int formationsCleared = 0;
 
     private long lastShot = 0;
+
+    private ImageView shieldIcon = null;
 
     @Override
     public void start(Stage primaryStage) {
@@ -241,7 +245,9 @@ public class SpaceShooter extends Application {
                     if (eb.isOutOfScreen(HEIGHT)) toRemove.add(eb);
                     if (!playerHitThisFrame && eb.getBoundsInParent().intersects(player.getBoundsInParent()) && playerHp > 0 && !gameEnded) {
                         toRemove.add(eb);
-                        playerHp--;
+                        if (!playerShield) { // Nếu không có khiên thì mới mất máu
+                            playerHp--;
+                        }
                         playerHitThisFrame = true;
                         // ...âm thanh...
                         break;
@@ -252,7 +258,9 @@ public class SpaceShooter extends Application {
                 if (!playerHitThisFrame) {
                     for (Enemy enemy : enemies) {
                         if (enemy.getBoundsInParent().intersects(player.getBoundsInParent()) && playerHp > 0 && !gameEnded) {
-                            playerHp--;
+                            if (!playerShield) {
+                                playerHp--;
+                            }
                             playerHitThisFrame = true;
                             // ...âm thanh...
                             break;
@@ -263,7 +271,9 @@ public class SpaceShooter extends Application {
                 // Va chạm boss
                 if (!playerHitThisFrame && bossActive && boss != null && !gameEnded) {
                     if (player.getBoundsInParent().intersects(boss.getBoundsInParent()) && playerHp > 0) {
-                        playerHp--;
+                        if (!playerShield) {
+                            playerHp--;
+                        }
                         playerHitThisFrame = true;
                         // ...âm thanh...
                     }
@@ -346,7 +356,9 @@ public class SpaceShooter extends Application {
 
                 // Power-up random
                 if (Math.random() < 0.01 && powerUps.size() < 1) {
-                    PowerUp pu = new PowerUp(Math.random() * (WIDTH - 30), 0);
+                    PowerUpType[] types = PowerUpType.values();
+                    PowerUpType type = types[(int)(Math.random() * types.length)];
+                    PowerUp pu = new PowerUp(Math.random() * (WIDTH - 30), 0.0, type);
                     root.getChildren().add(pu);
                     powerUps.add(pu);
                 }
@@ -357,8 +369,23 @@ public class SpaceShooter extends Application {
                     pu.update();
                     if (pu.isOutOfScreen(HEIGHT)) puToRemove.add(pu);
                     if (pu.getBoundsInParent().intersects(player.getBoundsInParent())) {
-                        powerLevel = Math.min(3, powerLevel + 1);
-                        powerUpEndTime = now + 5_000_000_000L;
+                        if (pu.getType() == PowerUpType.FIRE) {
+                            powerLevel = Math.min(3, powerLevel + 1);
+                            powerUpEndTime = now + 5_000_000_000L;
+                        } else if (pu.getType() == PowerUpType.SHIELD) {
+                            playerShield = true;
+                            shieldEndTime = System.currentTimeMillis() + 5000; // 5 giây
+                            if (shieldIcon == null) {
+                                shieldIcon = new ImageView(new Image(getClass().getResource("/game/images/shield.png").toExternalForm()));
+                                shieldIcon.setFitWidth(player.getFitWidth() + 10);
+                                shieldIcon.setFitHeight(player.getFitHeight() + 10);
+                                shieldIcon.setMouseTransparent(true); // Không bắt sự kiện chuột
+                                root.getChildren().add(shieldIcon);
+                            }
+                            shieldIcon.setVisible(true);
+                        } else if (pu.getType() == PowerUpType.HEALTH) {
+                            playerHp = Math.min(playerHp + 1, 5); // hồi 1 máu, tối đa 5
+                        }
                         puToRemove.add(pu);
                         AudioClip powerupSound = new AudioClip(getClass().getResource("/game/sounds/ansao.wav").toExternalForm());
                         powerupSound.setVolume(1.0);
@@ -511,13 +538,29 @@ public class SpaceShooter extends Application {
                 boolean playerCollideEnemy = false;
                 for (Enemy enemy : enemies) {
                     if (!playerCollideEnemy && enemy.getBoundsInParent().intersects(player.getBoundsInParent()) && playerHp > 0 && !gameEnded) {
-                        playerHp--;
+                        if (playerShield) {
+                            playerShield = false; // Mất khiên, không mất máu
+                            // Ẩn icon giáp nếu có
+                        } else {
+                            playerHp--;
+                        }
                         playerCollideEnemy = true;
                         AudioClip hitSound = new AudioClip(getClass().getResource("/game/sounds/hit.wav").toExternalForm());
                         hitSound.setVolume(0.2);
                         hitSound.play();
                         break;
                     }
+                }
+
+                if (playerShield && System.currentTimeMillis() > shieldEndTime) {
+                    playerShield = false;
+                    if (shieldIcon != null) shieldIcon.setVisible(false);
+                }
+
+                // Luôn cập nhật vị trí icon khiên theo player
+                if (playerShield && shieldIcon != null) {
+                    shieldIcon.setX(player.getX() - 5);
+                    shieldIcon.setY(player.getY() - 5);
                 }
             }
         }.start();
