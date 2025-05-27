@@ -3,6 +3,16 @@ package game;
 public class Player extends GameObject {
 
     private static final double SPEED = 10;
+    private boolean shielded;
+
+public boolean hasShield() {
+    return shielded;
+}
+
+public void setShielded(boolean shielded) {
+    this.shielded = shielded;
+}
+
 
     public Player(String imagePath, double x, double y) {
         super(imagePath, x, y, 60, 60);

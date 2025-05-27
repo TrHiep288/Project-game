@@ -21,6 +21,8 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 
 public class SpaceShooter extends Application {
+    private BossEnemy boss;
+    private boolean gameEnded = false;
 
     private final int WIDTH = 600;
     private final int HEIGHT = 700;
@@ -32,6 +34,7 @@ public class SpaceShooter extends Application {
     private List<PowerUp> powerUps = new ArrayList<>();
     private List<List<Enemy>> enemyRows = new ArrayList<>();
     private int currentRow = 0;
+    
 
     private boolean left, right, up, down;
     private int powerLevel = 1;
@@ -51,9 +54,7 @@ public class SpaceShooter extends Application {
 
     private MediaPlayer bgmPlayer;
 
-    private BossEnemy boss = null;
     private boolean bossActive = false;
-    private boolean gameEnded = false;
     private boolean bossSpawned = false;
 
     private double bossBulletPhase = 0;
@@ -64,6 +65,9 @@ public class SpaceShooter extends Application {
 
     private ImageView shieldIcon = null;
 
+    private AIController aiController;
+    private boolean aiEnabled = false; // Đặt true để bật AI tự động chơi
+    
     @Override
     public void start(Stage primaryStage) {
         // Phát nhạc khi vào menu
@@ -106,6 +110,14 @@ public class SpaceShooter extends Application {
         Pane root = new Pane();
         Scene scene = new Scene(root, WIDTH, HEIGHT);
 
+        // XÓA hiệu ứng khiên cũ nếu có
+        if (shieldIcon != null) {
+            root.getChildren().remove(shieldIcon);
+            shieldIcon = null;
+        }
+        playerShield = false;
+        shieldEndTime = 0;
+
         // Background động
         background1 = new ImageView(new Image(getClass().getResource("/game/images/Background.jpg").toExternalForm()));
         background2 = new ImageView(new Image(getClass().getResource("/game/images/Background.jpg").toExternalForm()));
@@ -119,7 +131,7 @@ public class SpaceShooter extends Application {
 
         // Player
         player = new Player(getClass().getResource("/game/images/Player.png").toExternalForm(), WIDTH / 2 - 30, HEIGHT - 100);
-        root.getChildren().add(player);
+        root.getChildren().add(player); // chỉ gọi 1 lần duy nhất khi bắt đầu game
 
         // Enemy rows
         createEnemyRows();
@@ -173,7 +185,7 @@ public class SpaceShooter extends Application {
                         bullets.add(bullet3);
                     }
                     AudioClip shootSound = new AudioClip(getClass().getResource("/game/sounds/bandan.wav").toExternalForm());
-                    shootSound.setVolume(0.2);
+                    shootSound.setVolume(0.6);
                     shootSound.play();
                     lastShot = now;
                 }
@@ -205,14 +217,14 @@ public class SpaceShooter extends Application {
                 double playerHeight = player.getFitHeight();
 
                 // Player move
-                if (left && player.getX() > 0)
+                if (left)
                     player.setX(Math.max(0, player.getX() - 3));
-                if (right && player.getX() + playerWidth < WIDTH)
-                    player.setX(Math.min(WIDTH - playerWidth, player.getX() + 3));
-                if (up && player.getY() > 0)
+                if (right)
+                    player.setX(Math.min(WIDTH - player.getFitWidth(), player.getX() + 3));
+                if (up)
                     player.setY(Math.max(0, player.getY() - 3));
-                if (down && player.getY() + playerHeight < HEIGHT)
-                    player.setY(Math.min(HEIGHT - playerHeight, player.getY() + 3));
+                if (down)
+                    player.setY(Math.min(HEIGHT - player.getFitHeight(), player.getY() + 3));
 
                 // Update bullets
                 for (Bullet bullet : bullets) bullet.update();
@@ -379,7 +391,7 @@ public class SpaceShooter extends Application {
                                 shieldIcon = new ImageView(new Image(getClass().getResource("/game/images/shield.png").toExternalForm()));
                                 shieldIcon.setFitWidth(player.getFitWidth() + 10);
                                 shieldIcon.setFitHeight(player.getFitHeight() + 10);
-                                shieldIcon.setMouseTransparent(true); // Không bắt sự kiện chuột
+                                shieldIcon.setMouseTransparent(true);
                                 root.getChildren().add(shieldIcon);
                             }
                             shieldIcon.setVisible(true);
@@ -562,12 +574,32 @@ public class SpaceShooter extends Application {
                     shieldIcon.setX(player.getX() - 5);
                     shieldIcon.setY(player.getY() - 5);
                 }
+
+                if (aiEnabled && aiController != null) {
+                    aiController.setBoss(boss);
+                    aiController.setGameEnded(gameEnded);
+                    aiController.updateAI();
+                }
             }
         }.start();
 
         primaryStage.setTitle("Space Shooter - JavaFX");
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        primaryStage.setUserData(this); // Để AI gọi simulateKeyPress
+
+        aiController = new AIController(
+            player,
+            enemies,
+            enemyBullets,
+            powerUps,
+            bullets,
+            boss,        // <-- add this
+            WIDTH,       // double sceneWidth
+            gameEnded,   // <-- add this
+            root
+        );
     }
 
     // Enemy formations
@@ -654,6 +686,36 @@ public class SpaceShooter extends Application {
                 root.getChildren().add(e);
                 enemies.add(e);
             }
+        }
+    }
+
+    public void simulateKeyPress(KeyCode code, Pane root) {
+        long now = System.nanoTime();
+        if (code == KeyCode.SPACE && !gameEnded && playerHp > 0 && now - lastShot > 300_000_000) {
+            double playerWidth = player.getFitWidth();
+            if (powerLevel == 1) {
+                Bullet bullet = new Bullet(player.getX() + playerWidth / 2 - 4, player.getY() - 10, -5, 1);
+                root.getChildren().add(bullet);
+                bullets.add(bullet);
+            } else if (powerLevel == 2) {
+                Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 12, player.getY() - 10, -5, 1);
+                Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 + 8, player.getY() - 10, -5, 1);
+                root.getChildren().addAll(bullet1, bullet2);
+                bullets.add(bullet1);
+                bullets.add(bullet2);
+            } else if (powerLevel >= 3) {
+                Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 18, player.getY() - 10, -5, 2);
+                Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 - 2, player.getY() - 10, -5, 2);
+                Bullet bullet3 = new Bullet(player.getX() + playerWidth / 2 + 14, player.getY() - 10, -5, 2);
+                root.getChildren().addAll(bullet1, bullet2, bullet3);
+                bullets.add(bullet1);
+                bullets.add(bullet2);
+                bullets.add(bullet3);
+            }
+            AudioClip shootSound = new AudioClip(getClass().getResource("/game/sounds/bandan.wav").toExternalForm());
+            shootSound.setVolume(0.2);
+            shootSound.play();
+            lastShot = now;
         }
     }
 
