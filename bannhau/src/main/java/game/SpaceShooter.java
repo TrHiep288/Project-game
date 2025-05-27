@@ -66,7 +66,7 @@ public class SpaceShooter extends Application {
     private ImageView shieldIcon = null;
 
     private AIController aiController;
-    private boolean aiEnabled = false; // Đặt true để bật AI tự động chơi
+    private boolean aiEnabled = false; //Đặt true để bật AI tự động chơi
     
     @Override
     public void start(Stage primaryStage) {
@@ -162,33 +162,10 @@ public class SpaceShooter extends Application {
             else if (event.getCode() == KeyCode.UP) up = true;
             else if (event.getCode() == KeyCode.DOWN) down = true;
             else if (event.getCode() == KeyCode.SPACE) {
-                long now = System.nanoTime();
-                if (!gameEnded && playerHp > 0 && now - lastShot > 300_000_000) {
-                    double playerWidth = player.getFitWidth();
-                    if (powerLevel == 1) {
-                        Bullet bullet = new Bullet(player.getX() + playerWidth / 2 - 4, player.getY() - 10, -5, 1);
-                        root.getChildren().add(bullet);
-                        bullets.add(bullet);
-                    } else if (powerLevel == 2) {
-                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 12, player.getY() - 10, -5, 1);
-                        Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 + 8, player.getY() - 10, -5, 1);
-                        root.getChildren().addAll(bullet1, bullet2);
-                        bullets.add(bullet1);
-                        bullets.add(bullet2);
-                    } else if (powerLevel >= 3) {
-                        Bullet bullet1 = new Bullet(player.getX() + playerWidth / 2 - 18, player.getY() - 10, -5, 2);
-                        Bullet bullet2 = new Bullet(player.getX() + playerWidth / 2 - 2, player.getY() - 10, -5, 2);
-                        Bullet bullet3 = new Bullet(player.getX() + playerWidth / 2 + 14, player.getY() - 10, -5, 2);
-                        root.getChildren().addAll(bullet1, bullet2, bullet3);
-                        bullets.add(bullet1);
-                        bullets.add(bullet2);
-                        bullets.add(bullet3);
-                    }
-                    AudioClip shootSound = new AudioClip(getClass().getResource("/game/sounds/bandan.wav").toExternalForm());
-                    shootSound.setVolume(0.6);
-                    shootSound.play();
-                    lastShot = now;
+                if (!spacePressed) { // Nếu vừa mới nhấn, bắn ngay 1 viên
+                    shootBullet(root);
                 }
+                spacePressed = true;
             }
         });
         scene.setOnKeyReleased(event -> {
@@ -196,6 +173,7 @@ public class SpaceShooter extends Application {
             else if (event.getCode() == KeyCode.RIGHT) right = false;
             else if (event.getCode() == KeyCode.UP) up = false;
             else if (event.getCode() == KeyCode.DOWN) down = false;
+            else if (event.getCode() == KeyCode.SPACE) spacePressed = false;
         });
 
         // Game loop
@@ -421,7 +399,7 @@ public class SpaceShooter extends Application {
 
                 // Game over: chỉ thua khi playerHp <= 0 (tức là trúng 5 viên đạn)
                 if (playerHp <= 0) {
-                    hpLabel.setText("HP: 0 (Game Over)");
+                    hpLabel.setText("HP: 0 ");
                     gameEnded = true;
                     self.stop();
                     Platform.runLater(() -> {
@@ -580,6 +558,11 @@ public class SpaceShooter extends Application {
                     aiController.setGameEnded(gameEnded);
                     aiController.updateAI();
                 }
+
+                // Bắn liên tục khi giữ SPACE
+                if (spacePressed && !gameEnded && playerHp > 0) {
+                    shootBullet(root);
+                }
             }
         }.start();
 
@@ -689,9 +672,12 @@ public class SpaceShooter extends Application {
         }
     }
 
-    public void simulateKeyPress(KeyCode code, Pane root) {
+    private boolean spacePressed = false; // Đã có
+
+    // Thêm hàm này vào class
+    private void shootBullet(Pane root) {
         long now = System.nanoTime();
-        if (code == KeyCode.SPACE && !gameEnded && playerHp > 0 && now - lastShot > 300_000_000) {
+        if (!gameEnded && playerHp > 0 && now - lastShot > 300_000_000) {
             double playerWidth = player.getFitWidth();
             if (powerLevel == 1) {
                 Bullet bullet = new Bullet(player.getX() + playerWidth / 2 - 4, player.getY() - 10, -5, 1);
@@ -716,6 +702,12 @@ public class SpaceShooter extends Application {
             shootSound.setVolume(0.2);
             shootSound.play();
             lastShot = now;
+        }
+    }
+
+    public void simulateKeyPress(KeyCode key, Pane root) {
+        if (key == KeyCode.SPACE) {
+            shootBullet(root); // hoặc logic bắn đạn của bạn
         }
     }
 
